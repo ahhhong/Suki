@@ -5,8 +5,8 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint",
-    "test": "node --test tests/sequence.test.mjs tests/gesture.test.mjs"
+    "lint": "vue-cli-service lint --ext .js,.mjs,.vue",
+    "test": "node --test tests/sequence.test.mjs tests/gesture.test.mjs tests/messages.test.mjs"
   },
   "dependencies": {
     "core-js": "^3.8.3",

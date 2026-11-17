@@ -23,7 +23,7 @@ export function normalizeWheel(event, viewportHeight) {
 
 export function createSequence({
   count = 10,
-  distance = 2800,
+  distance = 1400,
   canRender,
   render,
   reducedMotion = false,
@@ -57,7 +57,7 @@ export function createSequence({
     previousTime = time
     const difference = target - progress
     let next = reducedMotion || Math.abs(difference) < 0.00001
-      ? target : progress + difference * (1 - Math.exp(-dt / 42))
+      ? target : progress + difference * (1 - Math.exp(-dt / 21))
 
     if (!reducedMotion && difference !== 0) {
       // 一次最多走到下一个整帧边界，不能跨过尚未解码的画面。
@@ -109,6 +109,9 @@ export function createSequence({
       if (direction && direction !== nextDirection) target = progress
       direction = nextDirection
       target = clamp(target + delta / distance)
+      // 连续小数输入可能留下 1e-17 一类余量，必须准确到达阶段端点。
+      if (target < 1e-12) target = 0
+      else if (1 - target < 1e-12) target = 1
       wake()
       return 'consume'
     },
