@@ -1,10 +1,10 @@
 <template>
-  <div class="page-surface" aria-hidden="true"></div>
+  <div v-if="surface" class="page-surface" aria-hidden="true"></div>
   <nav class="page-nav" :class="{ 'page-nav--light': light }" aria-label="站点导航">
     <a
       v-for="item in items"
       :key="item.id"
-      :href="`#category-${item.id}`"
+      :href="item.href"
       :aria-label="`前往 ${item.label}`"
       :aria-current="current === item.id ? 'location' : null"
       :tabindex="busy ? -1 : null"
@@ -18,6 +18,7 @@ export default {
   name: 'PageSurface',
   props: {
     items: { type: Array, required: true },
+    surface: { type: Boolean, default: true },
     busy: { type: Boolean, default: false },
     current: { type: String, default: 'home' },
     light: { type: Boolean, default: false }
@@ -49,9 +50,9 @@ export default {
   left: 50%;
   transform: translateX(-50%);
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.5fr);
   align-items: center;
-  width: min(260px, calc(100% - 40px));
+  width: min(290px, calc(100% - 40px));
   gap: 2px;
 }
 

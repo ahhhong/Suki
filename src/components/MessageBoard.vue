@@ -17,71 +17,77 @@
       <li v-for="message in messages" :key="message.id">{{ message.content }}</li>
     </ul>
 
-    <div
-      ref="composer"
-      class="message-composer"
-      :class="{ 'message-composer--open': open }"
-      @click="pinned = true"
-      @pointerenter="onPointerEnter"
-      @pointerleave="hovered = false"
-      @focusin="onFocusIn"
-      @focusout="onFocusOut"
-      @keydown.esc.stop.prevent="close"
-      @wheel.stop
-      @touchstart.stop
-      @touchmove.stop
-      @touchend.stop
-    >
-      <section
-        id="message-dialog"
-        class="message-dialog"
-        role="dialog"
-        aria-labelledby="message-dialog-title"
-        :inert="!open ? '' : null"
-        :aria-hidden="!open ? 'true' : null"
+    <div class="intro-actions">
+      <div
+        ref="composer"
+        class="message-composer"
+        :class="{ 'message-composer--open': open }"
+        @pointerenter="onPointerEnter"
+        @pointerleave="hovered = false"
+        @focusin="onFocusIn"
+        @focusout="onFocusOut"
+        @keydown.esc.stop.prevent="close()"
+        @wheel.stop
+        @touchstart.stop
+        @touchmove.stop
+        @touchend.stop
       >
-        <header class="message-dialog__header">
-          <h2 id="message-dialog-title">留句话吧</h2>
-          <span v-if="api.preview" class="message-dialog__preview" role="img" aria-label="预览模式" title="后端尚未接入，留言只在当前页面预览，刷新后清除。">ⓘ</span>
-        </header>
-        <form @submit.prevent="submit">
-          <label class="sr-only" for="message-content">留言内容</label>
-          <input
-            type="text"
-            id="message-content"
-            ref="input"
-            v-model="draft"
-            :maxlength="maxLength"
-            :disabled="sending"
-            :aria-invalid="sendError ? 'true' : null"
-            :aria-describedby="sendError ? 'message-error' : null"
-            placeholder="想说的话，留在这里…"
-            @input="sendError = ''; status = ''"
-          >
-          <button type="submit" class="message-dialog__send" :disabled="sending || !draft.trim()" :aria-label="sending ? '发送中' : '发送留言'" title="发送留言">
-            <span aria-hidden="true">{{ sending ? '…' : '↗' }}</span>
+        <IntroAction
+          ref="trigger"
+          class="message-composer__trigger"
+          :aria-expanded="open"
+          aria-controls="message-dialog"
+          aria-haspopup="dialog"
+          @click="togglePin"
+        />
+        <section
+          id="message-dialog"
+          class="message-dialog"
+          role="dialog"
+          aria-labelledby="message-dialog-title"
+          :inert="!open ? '' : null"
+          :aria-hidden="!open ? 'true' : null"
+          @click="pinned = true"
+        >
+          <header class="message-dialog__header">
+            <h2 id="message-dialog-title">留句话吧</h2>
+            <span v-if="api.preview" class="message-dialog__preview" role="img" aria-label="预览模式" title="后端尚未接入，留言只在当前页面预览，刷新后清除。">ⓘ</span>
+          </header>
+          <form @submit.prevent="submit">
+            <label class="sr-only" for="message-content">留言内容</label>
+            <input
+              type="text"
+              id="message-content"
+              ref="input"
+              v-model="draft"
+              :maxlength="maxLength"
+              :disabled="sending"
+              :aria-invalid="sendError ? 'true' : null"
+              :aria-describedby="sendError ? 'message-error' : null"
+              placeholder="留一笔来过的痕迹"
+              @input="sendError = ''; status = ''"
+            >
+            <button type="submit" class="message-dialog__send" :disabled="sending || !draft.trim()" :aria-label="sending ? '发送中' : '发送留言'" title="发送留言">
+              <span v-if="sending" aria-hidden="true">…</span>
+              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m4 11 16-7-6 16-3-6-7-3Zm7 3 9-10"/>
+              </svg>
+            </button>
+          </form>
+          <button type="button" class="message-dialog__close" aria-label="清空并关闭留言框" title="清空并关闭" @click.stop="clearAndClose">
+            <span v-if="draft">清空</span>
+            <svg v-else width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
           </button>
-        </form>
-        <button type="button" class="message-dialog__close" aria-label="清空并关闭留言框" title="清空并关闭" @click.stop="clearAndClose">×</button>
-      </section>
-      <button
-        ref="trigger"
-        type="button"
-        class="message-composer__trigger"
-        :aria-expanded="open"
-        :aria-hidden="open ? 'true' : null"
-        :inert="open ? '' : null"
-        aria-controls="message-dialog"
-        aria-haspopup="dialog"
-        @click.stop="togglePin"
-      >留言</button>
-    </div>
-    <div v-if="open && (sendError || status || loadError)" ref="feedback" class="message-feedback" @wheel.stop @touchstart.stop @touchmove.stop>
-      <p v-if="sendError" id="message-error" class="message-dialog__error" role="alert">{{ sendError }}</p>
-      <p v-else-if="status" class="message-dialog__status" role="status">{{ status }}</p>
-      <div v-else-if="loadError" class="message-dialog__load-error" role="status">
-        <span>{{ loadError }}</span>
-        <button type="button" :disabled="loading" @click="load">{{ loading ? '加载中…' : '重试' }}</button>
+        </section>
+      </div>
+      <slot />
+      <div v-if="open && (sendError || status || loadError)" ref="feedback" class="message-feedback" @wheel.stop @touchstart.stop @touchmove.stop>
+        <p v-if="sendError" id="message-error" class="message-dialog__error" role="alert">{{ sendError }}</p>
+        <p v-else-if="status" class="message-dialog__status" role="status">{{ status }}</p>
+        <div v-else-if="loadError" class="message-dialog__load-error" role="status">
+          <span>{{ loadError }}</span>
+          <button type="button" :disabled="loading" @click="load">{{ loading ? '加载中…' : '重试' }}</button>
+        </div>
       </div>
     </div>
   </div>
@@ -91,9 +97,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createMessageApi, MESSAGE_MAX_LENGTH } from '../messages/api.mjs'
 import { createMessagePicker } from '../messages/shuffle.mjs'
+import IntroAction from './IntroAction.vue'
 
 export default {
   name: 'MessageBoard',
+  components: { IntroAction },
   props: { active: { type: Boolean, default: true } },
   setup(props) {
     const api = createMessageApi()
@@ -198,7 +206,7 @@ export default {
     }
 
     function onFocusIn(event) {
-      if (event.target !== trigger.value) focused.value = true
+      focused.value = Boolean(event.target.closest('.message-dialog'))
     }
 
     function onFocusOut(event) {
@@ -262,121 +270,103 @@ export default {
   from { transform: translateX(100vw); }
   to { transform: translateX(-100%); }
 }
-.message-composer {
-  --dialog-width: min(440px, calc(100vw - 40px));
+.intro-actions {
+  --dialog-width: min(360px, calc(100vw - var(--action-left) - var(--action-right)));
   position: absolute;
-  left: max(clamp(20px, 3vw, 48px), env(safe-area-inset-left));
-  bottom: max(clamp(20px, 3vw, 40px), env(safe-area-inset-bottom));
-  width: 48px;
-  height: 48px;
-  overflow: hidden;
-  border: 1px solid #d7bc7f;
-  border-radius: 24px;
-  background: rgb(17 16 12 / 94%);
-  box-shadow: 0 5px 28px rgb(0 0 0 / 20%);
-  pointer-events: auto;
-  transition: width 440ms cubic-bezier(0.22, 1, 0.36, 1),
-    background-color 300ms ease, box-shadow 300ms ease;
-}
-.message-composer--open {
-  width: var(--dialog-width);
-  background: #191a1d;
-  box-shadow: 0 16px 60px rgb(0 0 0 / 36%);
-}
-.message-composer__trigger {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: #fff0c6;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  opacity: 1;
-  visibility: visible;
-  transition: opacity 120ms ease 140ms, visibility 0s;
-}
-.message-composer--open .message-composer__trigger {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 100ms ease, visibility 0s linear 100ms;
-}
-.message-composer:has(.message-composer__trigger:focus-visible) { outline: 2px solid #ffe3a2; outline-offset: 4px; }
-.message-dialog {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: calc(var(--dialog-width) - 2px);
-  height: 46px;
+  right: var(--action-right);
+  bottom: var(--action-bottom);
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 6px 4px 12px;
-  border: 0;
-  color: #fff5e1;
-  text-align: left;
+  pointer-events: auto;
+}
+.message-composer { position: static; }
+.message-dialog {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: var(--dialog-width);
+  height: 48px;
+  padding: 1px 3px 1px 12px;
+  border: 2px solid #77776a;
+  border-radius: 2px;
+  background: linear-gradient(165deg, #353833, #242724);
+  color: #faf2df;
+  box-shadow: inset 0 1px rgb(225 224 194 / 12%), 0 3px 0 #121612, 0 6px 18px rgb(0 0 0 / 36%);
   opacity: 0;
   visibility: hidden;
-  pointer-events: none;
-  transition: opacity 100ms ease, visibility 0s linear 100ms;
+  transform: translateY(4px);
+  transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 160ms;
+}
+.message-dialog::before {
+  content: '';
+  position: absolute;
+  inset: 100% 0 auto;
+  height: 14px;
 }
 .message-composer--open .message-dialog {
   opacity: 1;
   visibility: visible;
-  pointer-events: auto;
-  transition: opacity 180ms ease 120ms, visibility 0s;
+  transform: none;
+  transition-delay: 0s;
 }
 .message-dialog__header { display: contents; }
 .message-dialog__header h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.message-dialog__preview { flex: none; color: #b6a78d; font-size: 14px; cursor: help; }
-.message-dialog form { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
-.message-dialog__close {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 32px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #c6c2b8;
-  font-size: 22px;
-}
+.message-dialog__preview { flex: none; color: #dfc59c; font-size: 15px; cursor: help; }
+.message-dialog form { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
 .message-dialog input {
   display: block;
   min-width: 0;
   flex: 1;
-  height: 36px;
-  padding: 0 2px;
+  height: 38px;
+  padding: 0 4px;
   border: 0;
-  border-radius: 4px;
+  border-radius: 2px;
   outline: none;
   background: transparent;
-  color: #fff5e1;
-  font: 14px/1.7 system-ui, sans-serif;
+  color: #faf2df;
+  font: 16px/1.5 system-ui, sans-serif;
 }
-.message-dialog input::placeholder { color: #8f8c84; }
+.message-dialog input::placeholder { color: #b5aea1; }
 .message-dialog input:focus-visible { box-shadow: inset 0 -1px #d7bc7f; }
-.message-dialog__send { display: grid; place-items: center; flex: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: #f1d99d; color: #292416; font-size: 23px; }
-.message-dialog__send:hover { background: #ffe8b4; }
-.message-dialog button:disabled { cursor: default; opacity: 0.5; }
-.message-feedback { position: absolute; left: max(clamp(20px, 3vw, 48px), env(safe-area-inset-left)); bottom: calc(max(clamp(20px, 3vw, 40px), env(safe-area-inset-bottom)) + 58px); max-width: min(440px, calc(100vw - 40px)); padding: 6px 12px; border-radius: 8px; background: #191a1d; pointer-events: auto; }
+.message-dialog__close, .message-dialog__send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+}
+.message-dialog__close { background: transparent; color: #e2d9ca; font-size: 12px; }
+.message-dialog__send { background: #f0d6a1; color: #30291e; }
+.message-dialog__send:enabled:hover { background: #ffe8ba; }
+.message-dialog__close:hover { background: #38362f; }
+.message-dialog button:disabled { cursor: default; background: #37352f; color: #b8ac97; }
+.message-dialog button:focus-visible { outline: 2px solid #fff0ce; outline-offset: -3px; }
+.message-feedback {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 72px);
+  max-width: min(440px, calc(100vw - var(--action-left) - var(--action-right)));
+  padding: 6px 12px;
+  border: 1px solid #77776a;
+  border-radius: 2px;
+  background: #242724;
+  pointer-events: auto;
+}
 .message-dialog__error, .message-dialog__status { margin: 0; font-size: 12px; line-height: 1.7; }
 .message-dialog__error { color: #ffb3a5; }
 .message-dialog__status { color: #e4cf9f; }
 .message-dialog__load-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #ffb3a5; font-size: 12px; }
 .message-dialog__load-error button { min-height: 36px; padding: 6px 12px; font-size: 12px; }
-.message-composer button:focus-visible { outline: 2px solid #ffe3a2; outline-offset: 4px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (prefers-reduced-motion: reduce) {
-  .message-composer, .message-dialog, .message-composer__trigger { transition: none; }
+  .message-dialog { transition: none; }
   .danmaku__message { animation: none; transform: none; position: static; width: fit-content; max-width: calc(100vw - 40px); overflow: hidden; text-overflow: ellipsis; margin-left: 20px; }
 }
 </style>

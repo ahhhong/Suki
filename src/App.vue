@@ -1,5 +1,6 @@
 <template>
   <div :aria-busy="transitioning ? 'true' : null">
+    <!-- Home 首页：开场动画、站点标题和留言入口；HOME 导航及卡片返回此页。 -->
     <section
       id="intro"
       ref="intro"
@@ -12,30 +13,27 @@
       <div ref="introVisual" class="slide__visual">
         <div ref="stage" class="intro__stage" aria-hidden="true"></div>
         <PageSurface :items="archiveCards" :current="activeCategory" :busy="transitioning" @navigate="navigateCategory" />
-        <h1 ref="title" class="intro__title">Suki</h1>
-        <canvas ref="liquidCanvas" class="intro__liquid" aria-hidden="true"></canvas>
+        <h1 ref="title" class="intro__title" lang="ja-Latn" aria-label="SukinaKoto">Sukina<span class="intro__signature">Koto</span></h1>
         <div class="intro__exposure" aria-hidden="true"></div>
-        <MessageBoard :active="page === 0 && !transitioning" />
-        <button
-          v-if="page === 0"
-          type="button"
-          class="intro__skip"
-          :disabled="transitioning"
-          @click="skipIntro"
-        >
-          跳过动画
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="m7 5 7 7-7 7M18 5v14" stroke="currentColor" stroke-width="1.5" />
-          </svg>
-        </button>
+        <IntroScrollHint :visible="page === 0 && !transitioning && !failed && !introStarted" />
+        <MessageBoard :active="page === 0 && !transitioning">
+          <IntroAction
+            v-if="page === 0"
+            skip
+            :disabled="transitioning"
+            @click="skipIntro"
+          />
+        </MessageBoard>
         <div v-if="page === 0 && failed" class="intro__error" role="status">
           <span>画面加载失败</span>
           <button type="button" @click="retry">重试</button>
         </div>
       </div>
     </section>
+    <!-- Home 首页结束 -->
 
     <main aria-label="正文">
+      <!-- 分类入口页：连接 Home 首页、Blog 首页及其他分类。 -->
       <section
         id="content-one"
         ref="bodyOne"
@@ -49,7 +47,7 @@
           <div class="archive">
             <header class="archive__header">
               <span class="archive__index"></span>
-              <h2 class="archive__title">SUKI <span>IS 小窝.</span></h2>
+              <h2 class="archive__title">SukinaKoto</h2>
             </header>
             <div class="archive__grid" role="group" aria-label="内容分类">
               <button
@@ -60,8 +58,20 @@
                 class="archive__card"
                 :class="`archive__card--${card.id}`"
                 :aria-label="card.label"
-                @focus="activeCategory = card.id"
+                @click="navigateCategory(card.id)"
+                @pointerenter="onCardPointerEnter(card.id, $event)"
+                @pointerleave="onCardPointerLeave(card.id, $event)"
+                @pointerdown="onCardPointerDown(card.id, $event)"
+                @focus="onCardFocus(card.id, $event)"
+                @blur="onCardBlur(card.id)"
               >
+                <InkReveal
+                  :ref="instance => setInkRef(card.id, instance)"
+                  :line-src="card.lineSrc"
+                  :color-src="card.colorSrc"
+                  :fit="card.fit"
+                  :position-x="card.positionX"
+                />
                 <span class="archive__card-label" aria-hidden="true">
                   <span class="archive__card-number">{{ card.number }}</span>
                   <span class="archive__card-name">{{ card.label }}</span>
@@ -73,19 +83,84 @@
         </div>
       </section>
 
+      <!-- Blog 首页：点击 BLOG 先进入纯白首屏，向下滚动后才进入 Blog 内容页。 -->
       <section
-        id="content-two"
-        ref="bodyTwo"
-        class="slide slide--two"
+        id="blog"
+        ref="blog"
+        class="slide slide--blog"
         tabindex="-1"
-        aria-labelledby="heading-two"
+        aria-label="Blog 首页"
         :inert="page !== 2 || transitioning ? '' : null"
         :aria-hidden="page !== 2 ? 'true' : null"
       >
-        <div ref="bodyTwoVisual" class="slide__visual slide__body">
-          <PageSurface :items="archiveCards" :current="activeCategory" :busy="transitioning" @navigate="navigateCategory" />
-          <!-- 在这里替换正文第二屏的内容。 -->
-          <h2 id="heading-two">正文第二屏</h2>
+        <div ref="blogVisual" class="slide__visual">
+          <BlogHome />
+          <PageSurface :items="archiveCards" current="blog" :busy="transitioning" :surface="false" light @navigate="navigateCategory" />
+        </div>
+      </section>
+      <!-- Blog 首页结束 -->
+
+      <!-- Blog 内容页：从 Blog 首页向下滚动进入，向上滚动返回纯白首屏。 -->
+      <section
+        id="blog-content"
+        ref="blogContent"
+        class="slide slide--blog"
+        tabindex="-1"
+        aria-labelledby="blog-heading"
+        :inert="page !== 3 || transitioning ? '' : null"
+        :aria-hidden="page !== 3 ? 'true' : null"
+      >
+        <div ref="blogContentVisual" class="slide__visual slide__body slide__body--archive">
+          <PageSurface :items="archiveCards" current="blog" :busy="transitioning" light @navigate="navigateCategory" />
+          <BlogContent :busy="transitioning" @back="returnToCategories" />
+        </div>
+      </section>
+
+      <!-- 后台登录页：所有 BACKEND 导航和分类卡片统一进入此页，不参与专区滚动翻页。 -->
+      <section
+        id="backend-login"
+        ref="backend"
+        class="slide slide--backend"
+        tabindex="-1"
+        aria-labelledby="backend-login-heading"
+        :inert="page !== 4 || transitioning ? '' : null"
+        :aria-hidden="page !== 4 ? 'true' : null"
+      >
+        <div ref="backendVisual" class="slide__visual">
+          <PageSurface :items="archiveCards" current="backend" :busy="transitioning" :surface="false" light @navigate="navigateCategory" />
+          <BackendLogin :active="page === 4 && !transitioning" @back="returnToCategories" />
+        </div>
+      </section>
+
+      <!-- Works 页面：所有 WORKS 卡片和导航进入此页，当前显示施工标识。 -->
+      <section
+        id="works"
+        ref="works"
+        class="slide slide--blank"
+        tabindex="-1"
+        aria-label="Works 页面"
+        :inert="page !== 5 || transitioning ? '' : null"
+        :aria-hidden="page !== 5 ? 'true' : null"
+      >
+        <div ref="worksVisual" class="slide__visual">
+          <PageSurface :items="archiveCards" current="works" :busy="transitioning" :surface="false" light @navigate="navigateCategory" />
+          <UnderConstruction />
+        </div>
+      </section>
+
+      <!-- Me 页面：所有 ME 卡片和导航进入此页，当前显示施工标识。 -->
+      <section
+        id="me"
+        ref="me"
+        class="slide slide--blank"
+        tabindex="-1"
+        aria-label="Me 页面"
+        :inert="page !== 6 || transitioning ? '' : null"
+        :aria-hidden="page !== 6 ? 'true' : null"
+      >
+        <div ref="meVisual" class="slide__visual">
+          <PageSurface :items="archiveCards" current="me" :busy="transitioning" :surface="false" light @navigate="navigateCategory" />
+          <UnderConstruction />
         </div>
       </section>
     </main>
@@ -97,53 +172,126 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { createSequence, normalizeWheel } from './intro/sequence.mjs'
 import { createImageCache } from './intro/image-cache.mjs'
-import { createLiquidTitle } from './intro/liquid-title.mjs'
 import { createWheelGesture } from './paging/gesture.mjs'
 import { createSlidePager } from './paging/slide-pager.mjs'
 import MessageBoard from './components/MessageBoard.vue'
+import IntroAction from './components/IntroAction.vue'
+import IntroScrollHint from './components/IntroScrollHint.vue'
 import PageSurface from './components/PageSurface.vue'
+import InkReveal from './components/InkReveal.vue'
+import BlogHome from './components/BlogHome.vue'
+import BlogContent from './components/BlogContent.vue'
+import BackendLogin from './components/BackendLogin.vue'
+import UnderConstruction from './components/UnderConstruction.vue'
 
 const FRAME_URLS = Array.from({ length: 10 }, (_, i) =>
   `${process.env.BASE_URL}intro/${String(i + 1).padStart(2, '0')}.webp`
 )
 
+const ASSET_ROOT = process.env.BASE_URL
 const ARCHIVE_CARDS = [
-  { id: 'home', number: '01', label: 'HOME' },
-  { id: 'blog', number: '02', label: 'BLOG' },
-  { id: 'works', number: '03', label: 'WORKS' },
-  { id: 'idea', number: '04', label: 'IDEA' },
-  { id: 'me', number: '05', label: 'ME' }
+  { id: 'home', number: '01', label: 'HOME', targetPage: 0, href: '#intro', fit: 'contain', positionX: 0.5,
+    lineSrc: `${ASSET_ROOT}home/line.png`, colorSrc: `${ASSET_ROOT}home/color.webp` },
+  { id: 'blog', number: '02', label: 'BLOG', targetPage: 2, href: '#blog', fit: 'cover', positionX: 0.72,
+    lineSrc: `${ASSET_ROOT}archive/2-1.png`, colorSrc: `${ASSET_ROOT}archive/2-2.webp` },
+  { id: 'works', number: '03', label: 'WORKS', targetPage: 5, href: '#works', fit: 'cover', positionX: 0.75,
+    lineSrc: `${ASSET_ROOT}archive/3-1.png`, colorSrc: `${ASSET_ROOT}archive/3-2.webp` },
+  { id: 'me', number: '04', label: 'ME', targetPage: 6, href: '#me', fit: 'cover', positionX: 0.7,
+    lineSrc: `${ASSET_ROOT}archive/4-1.png`, colorSrc: `${ASSET_ROOT}archive/4-2.webp` },
+  { id: 'backend', number: '05', label: 'BACKEND', targetPage: 4, href: '#backend-login', fit: 'cover', positionX: 0.5,
+    lineSrc: `${ASSET_ROOT}archive/5-1.png`, colorSrc: `${ASSET_ROOT}archive/5-2.webp` }
 ]
 
 export default {
   name: 'App',
-  components: { MessageBoard, PageSurface },
+  components: { MessageBoard, IntroAction, IntroScrollHint, PageSurface, InkReveal, BlogHome, BlogContent, BackendLogin, UnderConstruction },
   setup() {
     const intro = ref(null)
     const introVisual = ref(null)
     const stage = ref(null)
     const title = ref(null)
-    const liquidCanvas = ref(null)
     const bodyOne = ref(null)
-    const bodyTwo = ref(null)
     const bodyOneVisual = ref(null)
-    const bodyTwoVisual = ref(null)
+    const blog = ref(null)
+    const blogVisual = ref(null)
+    const blogContent = ref(null)
+    const blogContentVisual = ref(null)
+    const backend = ref(null)
+    const backendVisual = ref(null)
+    const works = ref(null)
+    const worksVisual = ref(null)
+    const me = ref(null)
+    const meVisual = ref(null)
     const mask = ref(null)
     const page = ref(0)
     const activeCategory = ref('home')
+    const inkComponents = new Map()
     const transitioning = ref(false)
     const failed = ref(false)
+    const introStarted = ref(false)
     const gesture = createWheelGesture()
     let sequence
     let exposure
     let images
-    let liquidTitle
     let pager
     let motionPreference
     let disposed = false
     let resizeFrame = 0
     let touch = null
     let previousRestoration
+    const pointerCards = new Set()
+    const keyboardCards = new Set()
+    const touchCards = new Set()
+
+    function syncInk(id, event) {
+      inkComponents.get(id)?.setActive(
+        pointerCards.has(id) || keyboardCards.has(id) || touchCards.has(id),
+        event
+      )
+    }
+
+    function setInkRef(id, instance) {
+      if (instance) {
+        inkComponents.set(id, instance)
+        syncInk(id)
+      } else inkComponents.delete(id)
+    }
+
+    function onCardPointerEnter(id, event) {
+      if (event.pointerType === 'touch') return
+      pointerCards.add(id)
+      syncInk(id, event)
+    }
+
+    function onCardPointerLeave(id, event) {
+      pointerCards.delete(id)
+      syncInk(id, event)
+    }
+
+    function onCardPointerDown(id, event) {
+      if (event.pointerType !== 'touch') return
+      for (const otherId of touchCards) {
+        if (otherId === id) continue
+        touchCards.delete(otherId)
+        syncInk(otherId)
+      }
+      if (touchCards.has(id)) touchCards.delete(id)
+      else touchCards.add(id)
+      syncInk(id, event)
+    }
+
+    function onCardFocus(id, event) {
+      activeCategory.value = id
+      if (event.currentTarget.matches(':focus-visible')) keyboardCards.add(id)
+      else keyboardCards.delete(id)
+      syncInk(id)
+    }
+
+    function onCardBlur(id) {
+      keyboardCards.delete(id)
+      touchCards.delete(id)
+      syncInk(id)
+    }
 
     function canRender(frame) {
       const lowerReady = frame.lowerOpacity === 0 || images.ensure(frame.lower)
@@ -152,6 +300,7 @@ export default {
     }
 
     function renderFrame(frame, progress) {
+      if (progress > 0) introStarted.value = true
       const layers = []
       if (frame.lowerOpacity > 0) {
         const image = images.get(frame.lower)
@@ -167,7 +316,7 @@ export default {
           layers.some((image, i) => stage.value.children[i] !== image)) {
         stage.value.replaceChildren(...layers)
       }
-      liquidTitle.update(progress)
+      title.value.style.setProperty('--title-gold', `${progress * 100}%`)
       images.ensure(frame.lower - 1)
       images.ensure(frame.upper)
       images.ensure(frame.upper + 1)
@@ -182,7 +331,7 @@ export default {
       sequence?.destroy()
       exposure?.destroy()
       renderExposure(0)
-      liquidTitle.update(0)
+      title.value.style.removeProperty('--title-gold')
       sequence = createSequence({
         count: FRAME_URLS.length,
         reducedMotion: motionPreference.matches,
@@ -232,11 +381,21 @@ export default {
       }
       // 正文翻页判定：累计幅度 + 一次手势锁，最多切到相邻一屏。
       const direction = gesture.push(delta, time)
-      if (direction) void pager.goTo(pager.index + direction)
+      if (direction) void turnPage(direction)
+    }
+
+    function turnPage(direction) {
+      if (pager.index >= 4) return
+      // Home 专区为第 0～1 屏，Blog 专区为第 2～3 屏；滚动只在当前专区内翻页。
+      const first = pager.index >= 2 ? 2 : 0
+      const target = pager.index + direction
+      if (target < first || target > first + 1) return
+      return pager.goTo(target)
     }
 
     function skipIntro() {
       if (!pager || pager.busy || pager.index !== 0) return
+      introStarted.value = true
       sequence.destroy()
       exposure.destroy()
       touch = null
@@ -245,18 +404,23 @@ export default {
     }
 
     async function navigateCategory(id) {
-      if (!pager || pager.busy || disposed || !ARCHIVE_CARDS.some(card => card.id === id)) return
+      const card = ARCHIVE_CARDS.find(card => card.id === id)
+      if (!pager || pager.busy || disposed || !card) return
       touch = null
       gesture.block(performance.now())
-      if (pager.index === 0) await skipIntro()
-      else if (pager.index !== 1) await pager.goTo(1)
-      if (!disposed && pager.index === 1) {
-        activeCategory.value = id
-        bodyOne.value.querySelector(`#category-${id}`)?.focus({ preventScroll: true })
-      }
+      // 卡片和各页顶部导航共用目标配置；BLOG 始终先进入纯白首页。
+      await pager.goTo(card.targetPage)
+    }
+
+    function returnToCategories() {
+      if (!pager || pager.busy || disposed) return
+      touch = null
+      gesture.block(performance.now())
+      return pager.goTo(1)
     }
 
     function onWheel(event) {
+      if (pager.index === 4) return
       if (event.defaultPrevented || event.ctrlKey || !event.cancelable) return
       if (Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.deltaY === 0) return
       event.preventDefault()
@@ -264,6 +428,7 @@ export default {
     }
 
     function onKeydown(event) {
+      if (pager.index === 4) return
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
       if (event.target.closest?.('button, a, input, textarea, select, [contenteditable], [role="slider"]')) return
       const direction = {
@@ -278,7 +443,7 @@ export default {
         playIntro(direction * sequence.frameDistance)
       } else if (!event.repeat) {
         // 长按的重复 keydown 不会在转场结束后自动继续翻页。
-        void pager.goTo(pager.index + direction)
+        void turnPage(direction)
       }
     }
 
@@ -289,6 +454,7 @@ export default {
     }
 
     function onTouchMove(event) {
+      if (pager.index === 4) return
       if (!touch || event.touches.length !== 1) return
       const next = event.touches[0]
       const delta = touch.y - next.clientY
@@ -305,7 +471,6 @@ export default {
       sequence.setReducedMotion(event.matches)
       exposure.setReducedMotion(event.matches)
       pager.setReducedMotion(event.matches)
-      liquidTitle.setReducedMotion(event.matches)
     }
 
     function onResize() {
@@ -313,7 +478,6 @@ export default {
       resizeFrame = requestAnimationFrame(() => {
         resizeFrame = 0
         pager.align()
-        liquidTitle.resize()
       })
     }
 
@@ -328,12 +492,6 @@ export default {
       previousRestoration = window.history.scrollRestoration
       window.history.scrollRestoration = 'manual'
       document.documentElement.classList.add('slideshow-active')
-      liquidTitle = createLiquidTitle({
-        root: introVisual.value,
-        title: title.value,
-        canvas: liquidCanvas.value,
-        reducedMotion: motionPreference.matches
-      })
       images = createImageCache(FRAME_URLS, {
         onReady: () => {
           if (!disposed && page.value === 0) sequence?.wake()
@@ -341,8 +499,8 @@ export default {
         onError: () => { if (!disposed) failed.value = true }
       })
       pager = createSlidePager({
-        sections: [intro.value, bodyOne.value, bodyTwo.value],
-        visuals: [introVisual.value, bodyOneVisual.value, bodyTwoVisual.value],
+        sections: [intro.value, bodyOne.value, blog.value, blogContent.value, backend.value, works.value, me.value],
+        visuals: [introVisual.value, bodyOneVisual.value, blogVisual.value, blogContentVisual.value, backendVisual.value, worksVisual.value, meVisual.value],
         mask: mask.value,
         reducedMotion: motionPreference.matches,
         beforeEnter(target) {
@@ -352,7 +510,18 @@ export default {
             exposure.destroy()
           }
         },
-        onIndex: index => { page.value = index },
+        onIndex: index => {
+          page.value = index
+          const category = ARCHIVE_CARDS.find(card => card.targetPage === index)
+          if (category) activeCategory.value = category.id
+          else if (index === 3) activeCategory.value = 'blog'
+          if (index !== 1) {
+            pointerCards.clear()
+            keyboardCards.clear()
+            touchCards.clear()
+            for (const card of ARCHIVE_CARDS) syncInk(card.id)
+          }
+        },
         onBusy: value => { transitioning.value = value }
       })
       resetIntro()
@@ -383,16 +552,19 @@ export default {
       exposure?.destroy()
       pager?.destroy()
       images?.destroy()
-      liquidTitle?.destroy()
       document.documentElement.classList.remove('slideshow-active')
       window.history.scrollRestoration = previousRestoration
     })
 
     return {
-      intro, introVisual, stage, title, liquidCanvas,
-      bodyOne, bodyTwo, bodyOneVisual, bodyTwoVisual,
-      mask, page, transitioning, failed, retry, skipIntro, navigateCategory,
-      archiveCards: ARCHIVE_CARDS, activeCategory
+      intro, introVisual, stage, title,
+      bodyOne, bodyOneVisual,
+      blog, blogVisual, blogContent, blogContentVisual,
+      backend, backendVisual,
+      works, worksVisual, me, meVisual,
+      mask, page, transitioning, failed, introStarted, retry, skipIntro, navigateCategory, returnToCategories,
+      archiveCards: ARCHIVE_CARDS, activeCategory, setInkRef,
+      onCardPointerEnter, onCardPointerLeave, onCardPointerDown, onCardFocus, onCardBlur
     }
   }
 }
@@ -400,8 +572,8 @@ export default {
 
 <style>
 @font-face {
-  font-family: 'Shojumaru';
-  src: url('./assets/fonts/Shojumaru-Regular.ttf') format('truetype');
+  font-family: 'Kaushan Script';
+  src: url('./assets/fonts/KaushanScript-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -437,7 +609,9 @@ body::-webkit-scrollbar { display: none; }
 
 .slide:focus { outline: none; }
 .slide--one { background: #fff; }
-.slide--two { background: #151515; }
+.slide--blog { background: #fff; }
+.slide--backend { background: #fff; }
+.slide--blank { background: #fff; }
 
 .slide__visual { position: absolute; inset: 0; }
 .slide__body {
@@ -490,8 +664,6 @@ body::-webkit-scrollbar { display: none; }
   letter-spacing: -0.07em;
 }
 
-.archive__title span { color: #bd2944; }
-
 .archive__grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -524,14 +696,15 @@ body::-webkit-scrollbar { display: none; }
   outline: 3px solid #bd2944;
   outline-offset: 4px;
 }
-.archive__card--home { grid-column: 1 / span 3; grid-row: 1 / span 2; }
+.archive__card--home { grid-column: 1 / span 3; grid-row: 1 / span 2; overflow: hidden; }
 .archive__card--blog { grid-column: 4 / span 4; grid-row: 1; }
 .archive__card--works { grid-column: 8 / span 5; grid-row: 1; }
-.archive__card--idea { grid-column: 4 / span 5; grid-row: 2; }
-.archive__card--me { grid-column: 9 / span 4; grid-row: 2; }
+.archive__card--me { grid-column: 4 / span 5; grid-row: 2; }
+.archive__card--backend { grid-column: 9 / span 4; grid-row: 2; }
 
 .archive__card-label {
   position: absolute;
+  z-index: 1;
   left: 12px;
   bottom: 12px;
   display: flex;
@@ -583,8 +756,8 @@ body::-webkit-scrollbar { display: none; }
   .archive__card--home { grid-column: 1; grid-row: 1 / span 2; }
   .archive__card--blog { grid-column: 2; grid-row: 1; }
   .archive__card--works { grid-column: 2; grid-row: 2; }
-  .archive__card--idea { grid-column: 1; grid-row: 3; }
-  .archive__card--me { grid-column: 2; grid-row: 3; }
+  .archive__card--me { grid-column: 1; grid-row: 3; }
+  .archive__card--backend { grid-column: 2; grid-row: 3; }
   .archive__card-label {
     left: 8px;
     bottom: 8px;
@@ -628,42 +801,52 @@ body::-webkit-scrollbar { display: none; }
   .intro__frame:first-child { opacity: 1 !important; }
 }
 
+#intro {
+  --action-left: max(clamp(20px, 3vw, 48px), env(safe-area-inset-left));
+  --action-right: max(clamp(20px, 3vw, 48px), env(safe-area-inset-right));
+  --action-bottom: max(clamp(20px, 3vw, 40px), env(safe-area-inset-bottom));
+}
+
+#intro .slide__visual::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 90% 65% at 0% 100%,
+    rgb(7 12 16 / 86%), rgb(7 12 16 / 54%) 46%, transparent);
+}
+
 .intro__title {
   position: absolute;
   z-index: 2;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: max-content;
+  left: var(--action-left);
+  bottom: max(clamp(88px, 13vh, 148px), calc(env(safe-area-inset-bottom) + 72px));
   margin: 0;
-  padding: 0.18em 0.24em;
-  color: transparent;
-  -webkit-text-stroke: 0.8px #ffe7a1;
-  filter: drop-shadow(1px 3px 0 #753708) drop-shadow(0 0 14px rgb(255 174 35 / 28%));
-  font-family: 'Shojumaru', fantasy;
-  font-size: clamp(2.9rem, 11.25vw, 10.35rem);
+  color: #faf4e7;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(3rem, min(16vw, 18vh), 11.5rem);
   font-weight: 400;
-  line-height: 1.3;
-  letter-spacing: 0.012em;
-  font-kerning: none;
-  font-variant-ligatures: none;
+  line-height: 1;
+  letter-spacing: -0.065em;
   white-space: nowrap;
+  text-shadow: 0 2px 9px rgb(8 12 15 / 45%);
   pointer-events: none;
 }
 
-.intro__liquid {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
+.intro__signature {
+  margin-left: 0.015em;
+  font-family: 'Kaushan Script', cursive;
+  font-size: 0.92em;
+  letter-spacing: -0.055em;
+  color: #edca90;
+  color: color-mix(in srgb, #f5af49 var(--title-gold, 0%), #edca90);
 }
 
 .intro__exposure {
   position: absolute;
   inset: 0;
-  z-index: 4;
+  z-index: 7;
   overflow: hidden;
   mix-blend-mode: screen;
   pointer-events: none;
@@ -693,6 +876,7 @@ body::-webkit-scrollbar { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .intro__stage { filter: none; }
+  .intro__signature { color: #edca90; }
   .intro__exposure::before { display: none; }
 }
 
@@ -705,28 +889,14 @@ body::-webkit-scrollbar { display: none; }
   pointer-events: none;
 }
 
-.intro__skip {
-  position: absolute;
-  z-index: 5;
-  right: max(clamp(20px, 3vw, 48px), env(safe-area-inset-right));
-  bottom: max(clamp(20px, 3vw, 40px), env(safe-area-inset-bottom));
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 10px 18px;
-  border: 1px solid rgb(255 223 136 / 55%);
-  border-radius: 999px;
-  background: rgb(15 12 6 / 80%);
-  color: #fff0c6;
-  font-size: 14px;
-  line-height: 1.5;
+@media (max-width: 680px) {
+  #intro:has(.message-composer--open) .intro__title {
+    bottom: max(13vh, calc(var(--action-bottom) + 124px));
+  }
+  #intro:has(.message-feedback) .intro__title {
+    bottom: max(13vh, calc(var(--action-bottom) + 160px));
+  }
 }
-
-.intro__skip:hover { border-color: #ffe7a1; background: #29200e; }
-.intro__skip:focus-visible { outline-color: #ffe7a1; }
-.intro__skip:disabled { cursor: default; }
 
 .intro__error {
   position: absolute;

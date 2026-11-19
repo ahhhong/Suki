@@ -1,5 +1,5 @@
 # 小站前端部分
-页面在同一文档中依次排列：全屏 WebP 开场、正文第一屏、正文第二屏。每屏高度为一个视口，滚动条隐藏。开场右下角的「跳过动画」按钮可停止图片与曝光进度，直接转场到正文第一屏；返回开场后可再次使用。首页上方循环播放纯文字伪随机弹幕，左下角 48px 圆形「留言」入口支持悬停横向展开、点击固定，展开时高度不变。
+页面在同一文档中依次排列：全屏 WebP 开场、正文第一屏、正文第二屏。每屏高度为一个视口，滚动条隐藏。开场底部有一对票根形按钮。左侧「留言」支持悬停展开或点击编辑，窄屏时输入框在按钮上方打开。右侧「跳过动画」可直接转场到正文第一屏，返回开场后可再次使用。首页上方循环播放纯文字伪随机弹幕。
 
 留言默认使用前端预览数据。后端对接配置和请求格式见 [留言接口约定](docs/message-api.md)。
 
@@ -24,8 +24,8 @@ macOS / Linux 使用 `npm` 替代 `npm.cmd`。
 | `src/paging/slide-pager.mjs` | 淡出、遮罩、唯一跳转、带方向的滑入和动画清理 |
 | `src/intro/sequence.mjs` | 0～1 开场进度、相邻帧透明度和最终帧退出条件 |
 | `src/intro/image-cache.mjs` | 加载、解码、预加载和错误重试 |
-| `src/intro/liquid-title.mjs` | 「Suki」艺术字遮罩、善逸羽织三角纹填充和随进度推进的分叉闪电 |
-| `src/assets/fonts/` | 本地 Shojumaru 艺术字体、原 Kaushan Script 字体及 SIL Open Font License |
+| `src/intro/liquid-title.mjs` | 旧版标题的字形遮罩、羽织三角纹和分叉闪电 |
+| `src/assets/fonts/` | 标题使用的 Kaushan Script、旧版 Shojumaru 字体及 SIL Open Font License |
 | `public/intro/01.webp`～`10.webp` | 当前这组新画面，按 `Desktop/11/1.png`～`10.png` 编号转换为 1920×1080 WebP，质量 92 |
 | `public/index.html` | 第一张图片的高优先级预加载 |
 | `src/main.js` | Vue 挂载入口 |
@@ -78,11 +78,11 @@ window.scrollTo({ top, left: 0, behavior: 'instant' })
 `position = p * 9`，`lower = min(floor(position), 8)`，`mix = position - lower`，相邻两张透明度分别为 `1 - mix` 和 `mix`。
 画面采用 `plus-lighter` 混合，防止交叉淡入淡出时额外变暗；图片未解码时不改变当前画面和显示进度，输入目标仍可累积。
 
-中央标题沿用「Suki」，字号为 `clamp(2.9rem, 11.25vw, 10.35rem)`，使用本地 Shojumaru 刀锋笔触艺术字体；标题与填充画布均在半透明底面之上。HTML 保留可访问的 h1 和细金色描边，Canvas 用同字体遮罩裁切善逸羽织风格的黄橙渐变、白色三角纹、细斜墨痕与电光。字心随图片进度从下向上点亮，向上滚时退回；两侧亮白电芯、金色光晕的分叉闪电和电火花仅在进度变化时重绘。字体加载完成后重新测量，确保字形与填充对齐。
+开场标题「SukinaKoto」位于画面左下方，与留言入口左对齐。单个 h1 内，Sukina 使用暖白衬线体，Koto 使用本地 Kaushan Script 手写体。随着图片向前或向后切换，手写部分在浅金色与琥珀色之间变化。
 
 最后一张正常显示后，额外滚动 600 像素累计距离完成曝光。曝光复用同一个进度控制器，逐渐提高亮度、扩散暖白光晕，最后以不透明白色铺满视口。向上滚动先减弱曝光，再倒退图片。白光全部显示后，下一次向下输入才触发正文切屏。
 
 方向键及 PageUp / PageDown 支持前进或后退。正文长按产生的重复按键不会继续翻页。触屏使用单指纵向滑动。
-系统减少动态效果模式关闭缓动、淡入淡出、位移、电光游移与填充边缘波动及扩散光晕，保留静态闪电和羽织纹样，曝光使用直接更新的白色覆盖层，并响应系统偏好的实时变化。
+系统减少动态效果模式关闭缓动、淡入淡出、位移与扩散光晕。标题保持固定配色，曝光使用直接更新的白色覆盖层。页面响应系统偏好的实时变化。
 
 参考：[Animation.finished](https://developer.mozilla.org/en-US/docs/Web/API/Animation/finished)、[window.scrollTo](https://developer.mozilla.org/en-US/docs/Web/API/Window/scrollTo)、[Image.decode](https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/decode)。
